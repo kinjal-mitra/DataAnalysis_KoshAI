@@ -16,4 +16,4 @@ Analyzes Excel files containing station data for TUS and CT stations.
 5. Open browser: `http://localhost:5000`
 
 ## Deployment
-See deployment instructions for Render or PythonAnywhere.
+Deployed on Render - (https://excel-station-analyzer.onrender.com/)
