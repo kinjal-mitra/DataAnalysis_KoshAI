@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Station Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f8f9ff;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .file-name {
+            margin-top: 10px;
+            color: #667eea;
+            font-weight: 500;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            background-color: white;
+        }
+        
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 40px;
+        }
+        
+        .help-text {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+        
+        .requirements {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        
+        .requirements h3 {
+            color: #667eea;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .requirements ul {
+            margin-left: 20px;
+            font-size: 13px;
+            color: #555;
+        }
+        
+        .requirements li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Excel Station Analyzer</h1>
+        <p class="subtitle">Upload your Excel file and analyze station data</p>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-error">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="requirements">
+            <h3>📋 Required Excel Columns:</h3>
+            <ul>
+                <li><strong>Station_ID</strong> - Station identifier (TUS or CT)</li>
+                <li><strong>PCode</strong> - Data Number </li>
+                <li><strong>Date_Time</strong> - Date and time</li>
+                <li><strong>Result</strong> - Result values</li>
+            </ul>
+        </div>
+        
+        <form action="/analyze" method="post" enctype="multipart/form-data" id="uploadForm">
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📁</div>
+                <p>Click to select Excel file</p>
+                <p style="font-size: 12px; color: #999; margin-top: 5px;">.xlsx or .xls files only</p>
+                <p class="file-name" id="fileName"></p>
+            </div>
+            
+            <input type="file" id="fileInput" name="file" accept=".xlsx,.xls" required onchange="updateFileName()">
+            
+            <div class="input-group">
+                <label for="station_id">Station ID: *</label>
+                <select id="station_id" name="station_id" required>
+                    <option value="">-- Select Station --</option>
+                    <option value="TUS">TUS</option>
+                    <option value="CT">CT</option>
+                </select>
+                <p class="help-text">Select the station you want to analyze</p>
+            </div>
+            
+            <button type="submit" id="submitBtn">🔍 Analyze Station Data</button>
+        </form>
+    </div>
+    
+    <script>
+        function updateFileName() {
+            const input = document.getElementById('fileInput');
+            const fileNameDisplay = document.getElementById('fileName');
+            
+            if (input.files.length > 0) {
+                fileNameDisplay.textContent = '✓ ' + input.files[0].name;
+            } else {
+                fileNameDisplay.textContent = '';
+            }
+        }
+        
+        document.getElementById('uploadForm').addEventListener('submit', function() {
+            const btn = document.getElementById('submitBtn');
+            btn.textContent = 'Processing...';
+            btn.disabled = true;
+        });
+    </script>
+</body>
+</html>

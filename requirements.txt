@@ -1,0 +1,7 @@
+numpy
+Flask
+pandas
+openpyxl
+gunicorn
+Werkzeug
+python-dotenv
