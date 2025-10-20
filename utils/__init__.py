@@ -9,14 +9,16 @@ from .analyzer import (
     analyze_excel_file,
     process_excel_for_web,
     get_available_stations,
-    pos_extractor
+    pos_extractor,
+    create_graph
 )
 
 __all__ = [
     'analyze_excel_file',
     'process_excel_for_web',
     'get_available_stations',
-    'pos_extractor'
+    'pos_extractor',
+    'create_graph'
 ]
 
 __version__ = '1.0.0'

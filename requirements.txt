@@ -5,3 +5,6 @@ openpyxl
 gunicorn
 Werkzeug
 python-dotenv
+xlrd
+matplotlib
+XlsxWriter

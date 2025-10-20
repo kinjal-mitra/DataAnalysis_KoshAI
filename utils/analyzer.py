@@ -1,6 +1,9 @@
 import pandas as pd
 import numpy as np
 from io import BytesIO
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend for server environments
 
 
 def pos_extractor(pcode):
@@ -68,6 +71,62 @@ def analyze_excel_file(raw_df, station_id):
     return final_df
 
 
+def create_graph(final_df, data_number):
+    """
+    Create a graph/chart from the analyzed dataframe.
+    Plots specified data column values (y-axis) vs Dates (x-axis).
+    
+    Args:
+        final_df: pandas DataFrame with analyzed data
+                 Columns: Station, Dates, Data 1, Data 2, Data 3, ...
+        data_number: String indicating which data column to plot (e.g., "Data 1", "Data 2")
+    
+    Returns:
+        BytesIO: Image buffer containing the graph as PNG
+    """
+    
+    # Create figure and axis
+    fig, ax = plt.subplots(figsize=(12, 6))
+    
+    # Plot specified data column vs Dates
+    ax.plot(final_df['Dates'], final_df[data_number], 
+            marker='o', 
+            linewidth=2, 
+            markersize=8,
+            color='#667eea',
+            label=data_number)
+    
+    # Customize the plot
+    ax.set_xlabel('Dates', fontsize=12, fontweight='normal')
+    ax.set_ylabel(f'{data_number} Values', fontsize=12, fontweight='normal')
+    ax.set_title(f'{final_df["Station"].iloc[0]} - {data_number} Analysis', 
+                 fontsize=16, fontweight='bold')
+    ax.legend(loc='best', fontsize=10)
+    ax.grid(True, alpha=0.3, linestyle='--')
+
+    # Create evenly spaced ticks including start and end
+    num_ticks = min(10, len(final_df))  # Don't exceed number of data points
+    dates = final_df['Dates'].reset_index(drop=True)
+    tick_positions = np.linspace(0, len(final_df) - 1, num_ticks, dtype=int)
+    
+    # Set the x-ticks at the calculated positions with corresponding date labels
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels(dates.iloc[tick_positions], rotation=45, ha='right')
+    
+    # Adjust layout to prevent label cutoff
+    plt.tight_layout()
+    
+    # Save to buffer
+    img_buffer = BytesIO()
+    fig.savefig(img_buffer, format='png', dpi=300, bbox_inches='tight')
+    img_buffer.seek(0)
+    
+    # Close the figure to free memory
+    plt.close(fig)
+    
+    return img_buffer
+
+
 def process_excel_for_web(input_file, station_id):
     """
     Wrapper function to process Excel file for web application.
@@ -113,8 +172,44 @@ def process_excel_for_web(input_file, station_id):
         
         # Create output Excel file in memory
         output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            result_df.to_excel(writer, index=False, sheet_name='Analysis')
+
+        # Use XlsxWriter engine to support image insertion
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            
+            # Write the dataframe to first sheet
+            result_df.to_excel(writer, index=False, sheet_name=f'{station_id} station')
+            
+            # Get workbook object
+            workbook = writer.book
+            worksheet = writer.sheets[f'{station_id} station']
+
+            # === Add font formatting here ===
+            # Create formats for header and data cells
+            header_format = workbook.add_format({ 'font_name': 'Arial', 'font_size': 12, 
+                                                 'bold': True, 'align': 'center', 'valign': 'vcenter'})
+
+            cell_format = workbook.add_format({'font_name': 'Times New Roman','font_size': 12,
+                                               'align': 'center','valign': 'vcenter'})
+
+            # Apply header format
+            for col_num, value in enumerate(result_df.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+
+            # Apply data cell format
+            worksheet.set_column(0, len(result_df.columns) - 1, 15, cell_format)
+            # === End of font formatting section ===
+
+            # Add graphs for Data 1 and Data 2
+            for i in range(1, 3):
+                # Create graph and get image buffer
+                img_buffer = create_graph(result_df, f"Data {i}")
+                
+                # Create a new worksheet for the graph
+                worksheet = workbook.add_worksheet(f'Data {i} Chart')
+
+                # Insert the image into the sheet
+                worksheet.insert_image('B2', f'Data_{i}_Chart.png', {'image_data': img_buffer})
+
         output.seek(0)
         
         return output

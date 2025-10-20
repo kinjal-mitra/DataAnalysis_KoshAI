@@ -1,9 +1,8 @@
 from flask import Flask, render_template, request, send_file, flash, redirect, url_for
 from werkzeug.utils import secure_filename
 import os
-from utils.analyzer import analyze_excel_file, process_excel_for_web, get_available_stations
+from utils.analyzer import process_excel_for_web, get_available_stations
 from config import Config
-
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -46,12 +45,21 @@ def analyze():
             # Process the file
             result_file = process_excel_for_web(file, station_id)
             
-            # Send the analyzed file
+            # Ensure we're at the start of the BytesIO object
+            result_file.seek(0)
+            
+            # Send the analyzed file with proper Excel filename
+            download_filename = f'{station_id}_Analysis'
+            if not download_filename.endswith('.xlsx'):
+                # Remove any existing extension and add .xlsx
+                base_name = download_filename.rsplit('.', 1)[0]
+                download_filename = f'{base_name}.xlsx'
+            
             return send_file(
                 result_file,
                 mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 as_attachment=True,
-                download_name=f'analyzed_station_{station_id}_{original_filename}'
+                download_name=download_filename
             )
         except ValueError as ve:
             # Handle validation errors (missing columns, invalid station ID, etc.)
