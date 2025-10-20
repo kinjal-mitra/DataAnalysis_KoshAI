@@ -9,7 +9,7 @@ from .analyzer import (
     analyze_excel_file,
     process_excel_for_web,
     get_available_stations,
-    pos_extractor,
+    get_available_pcodes,
     create_graph
 )
 
@@ -17,7 +17,7 @@ __all__ = [
     'analyze_excel_file',
     'process_excel_for_web',
     'get_available_stations',
-    'pos_extractor',
+    'get_available_pcodes',
     'create_graph'
 ]
 

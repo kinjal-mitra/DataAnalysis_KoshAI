@@ -6,19 +6,6 @@ import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend for server environments
 
 
-def pos_extractor(pcode):
-    """
-    Extract position code from PCode by taking last 2 characters.
-    
-    Args:
-        pcode: Position code value from the PCode column
-    
-    Returns:
-        int: Extracted position code number from last 2 characters
-    """
-    return int(pcode[-2:])
-
-
 def analyze_excel_file(raw_df, station_id):
     """
     Analyze Excel data for a specific station ID and reorganize data by date and position.
@@ -26,7 +13,7 @@ def analyze_excel_file(raw_df, station_id):
     Args:
         raw_df: pandas DataFrame containing the raw data with columns:
                 - Station_ID: Station identifier
-                - PCode: Position code
+                - PCode: Data Name/Code
                 - Date_Time: Date and time information
                 - Result: Result values to be organized
         station_id: The specific station ID to filter and analyze
@@ -37,38 +24,59 @@ def analyze_excel_file(raw_df, station_id):
     # Create dataframe on basis of Station_ID
     station_id_df = raw_df[raw_df["Station_ID"] == station_id].copy()
     
-    # Apply pos_extractor to PCode column
-    station_id_df["PositionCode"] = station_id_df["PCode"].apply(pos_extractor)
-    station_id_df = station_id_df.drop(columns=["PCode"])
-    
     # Get Unique dates
     unique_dates = station_id_df["Date_Time"].unique()
     
     # Create output Dataframe column names
     column_names = ["Station", "Dates"]
-    for i in range(1, station_id_df["PositionCode"].max() + 1):
-        name = "Data " + str(i)
-        column_names.append(name)
-    
+    unique_PCode = station_id_df["PCode"].unique().tolist()
+    unique_PCode.sort()
+    column_names.extend(unique_PCode)
+
     # Create Output Dataframe structure
     final_df = pd.DataFrame(columns=column_names)
     
     # Creating data-point for each date
     for date in unique_dates:
-        req_data = station_id_df[station_id_df["Date_Time"] == date].drop(columns="Date_Time")
-        req_data = req_data.sort_values(by="PositionCode", ascending=True)  # Sort DataFrame on Basis of PositionCode
+        req_data = station_id_df[station_id_df["Date_Time"]==date].drop(columns="Date_Time")
+        req_data = req_data.sort_values(by="PCode", ascending=True)  # Sort DataFrame on Basis of PositionCode
         
         data_point = [station_id, date.strftime('%d-%m-%Y')]  # Create data point for each specific date
-        data_point.extend([np.nan for i in range(1, station_id_df["PositionCode"].max() + 1)])  # Fill all Data values with np.nan
+        data_point.extend([np.nan for i in range (1, len(station_id_df["PCode"].unique())+1)])  # Fill all Data values with np.nan
         
-        for i in range(len(req_data)):
-            for column in range(i, station_id_df["PositionCode"].max() + 1):
-                if req_data.iloc[i, :]["PositionCode"] == column:
-                    data_point[req_data.iloc[i, :]["PositionCode"] + 1] = req_data.iloc[i, :]["Result"]
-        
+        for i in range (0, len(req_data)):
+            for column in unique_PCode:
+                if req_data.iloc[i, :]["PCode"]==column:
+                    data_point[unique_PCode.index(column)+2]=req_data.iloc[i, :]["Result"]
         final_df.loc[len(final_df)] = data_point
     
     return final_df
+
+
+def get_available_pcodes(input_file, station_id):
+    """
+    Get list of unique PCode values for a specific station from uploaded file.
+    
+    Args:
+        input_file: File object from Flask request
+        station_id: Station ID to filter ('TUS' or 'CT')
+    
+    Returns:
+        list: Sorted list of unique PCode values
+    """
+    try:
+        raw_df = pd.read_excel(input_file)
+        
+        if "PCode" not in raw_df.columns or "Station_ID" not in raw_df.columns:
+            return []
+        
+        # Filter by station_id and get unique PCodes
+        station_df = raw_df[raw_df["Station_ID"] == station_id]
+        unique_pcodes = sorted(station_df["PCode"].unique().tolist())
+        
+        return unique_pcodes
+    except Exception:
+        return []
 
 
 def create_graph(final_df, data_number):
@@ -78,8 +86,8 @@ def create_graph(final_df, data_number):
     
     Args:
         final_df: pandas DataFrame with analyzed data
-                 Columns: Station, Dates, Data 1, Data 2, Data 3, ...
-        data_number: String indicating which data column to plot (e.g., "Data 1", "Data 2")
+                 Columns: Station, Dates, PCode1, PCode2, ...
+        data_number: String indicating which data column to plot (PCode value)
     
     Returns:
         BytesIO: Image buffer containing the graph as PNG
@@ -88,8 +96,11 @@ def create_graph(final_df, data_number):
     # Create figure and axis
     fig, ax = plt.subplots(figsize=(12, 6))
     
-    # Plot specified data column vs Dates
-    ax.plot(final_df['Dates'], final_df[data_number], 
+    # Create numeric x-axis positions
+    x_positions = range(len(final_df))
+    
+    # Plot specified data column vs numeric positions
+    ax.plot(x_positions, final_df[data_number], 
             marker='o', 
             linewidth=2, 
             markersize=8,
@@ -98,7 +109,7 @@ def create_graph(final_df, data_number):
     
     # Customize the plot
     ax.set_xlabel('Dates', fontsize=12, fontweight='normal')
-    ax.set_ylabel(f'{data_number} Values', fontsize=12, fontweight='normal')
+    ax.set_ylabel(f'{data_number}', fontsize=12, fontweight='normal')
     ax.set_title(f'{final_df["Station"].iloc[0]} - {data_number} Analysis', 
                  fontsize=16, fontweight='bold')
     ax.legend(loc='best', fontsize=10)
@@ -127,7 +138,7 @@ def create_graph(final_df, data_number):
     return img_buffer
 
 
-def process_excel_for_web(input_file, station_id):
+def process_excel_for_web(input_file, station_id, pcode1=None, pcode2=None):
     """
     Wrapper function to process Excel file for web application.
     Reads the uploaded file, performs analysis, and returns result as downloadable Excel.
@@ -135,6 +146,8 @@ def process_excel_for_web(input_file, station_id):
     Args:
         input_file: File object from Flask request
         station_id: Station ID to analyze (string: 'TUS' or 'CT')
+        pcode1: First PCode to generate chart (optional)
+        pcode2: Second PCode to generate chart (optional)
     
     Returns:
         BytesIO: Excel file in memory ready for download
@@ -183,13 +196,21 @@ def process_excel_for_web(input_file, station_id):
             workbook = writer.book
             worksheet = writer.sheets[f'{station_id} station']
 
-            # === Add font formatting here ===
-            # Create formats for header and data cells
-            header_format = workbook.add_format({ 'font_name': 'Arial', 'font_size': 12, 
-                                                 'bold': True, 'align': 'center', 'valign': 'vcenter'})
+            # === Add font formatting ===
+            header_format = workbook.add_format({
+                'font_name': 'Arial', 
+                'font_size': 12, 
+                'bold': True, 
+                'align': 'center', 
+                'valign': 'vcenter'
+            })
 
-            cell_format = workbook.add_format({'font_name': 'Times New Roman','font_size': 12,
-                                               'align': 'center','valign': 'vcenter'})
+            cell_format = workbook.add_format({
+                'font_name': 'Times New Roman',
+                'font_size': 12,
+                'align': 'center',
+                'valign': 'vcenter'
+            })
 
             # Apply header format
             for col_num, value in enumerate(result_df.columns.values):
@@ -197,35 +218,31 @@ def process_excel_for_web(input_file, station_id):
 
             # Apply data cell format
             worksheet.set_column(0, len(result_df.columns) - 1, 15, cell_format)
-            # === End of font formatting section ===
-
-            # Add graphs for Data 1 and Data 2
-            for i in range(1, 3):
-                # Create graph and get image buffer
-                img_buffer = create_graph(result_df, f"Data {i}")
-                
-                # Create a new worksheet for the graph
-                worksheet = workbook.add_worksheet(f'Data {i} Chart')
-
-                # Insert the image into the sheet
-                worksheet.insert_image('B2', f'Data_{i}_Chart.png', {'image_data': img_buffer})
+            
+            # === Add graphs if PCodes are provided ===
+            if pcode1 and pcode1 in result_df.columns:
+                img_buffer = create_graph(result_df, pcode1)
+                graph_worksheet = workbook.add_worksheet(f'{pcode1} Chart')
+                graph_worksheet.insert_image('B2', f'{pcode1}_Chart.png', {'image_data': img_buffer})
+            
+            if pcode2 and pcode2 in result_df.columns:
+                img_buffer = create_graph(result_df, pcode2)
+                graph_worksheet = workbook.add_worksheet(f'{pcode2} Chart')
+                graph_worksheet.insert_image('B2', f'{pcode2}_Chart.png', {'image_data': img_buffer})
 
         output.seek(0)
         
         return output
     
     except ValueError as ve:
-        # Re-raise ValueError with original message
         raise ve
     except Exception as e:
-        # Wrap other exceptions with more context
         raise Exception(f"Error processing Excel file: {str(e)}")
 
 
 def get_available_stations(input_file):
     """
     Helper function to get list of available station IDs from uploaded file.
-    Useful for displaying options to user.
     
     Args:
         input_file: File object from Flask request

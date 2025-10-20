@@ -197,13 +197,13 @@
             <h3>📋 Required Excel Columns:</h3>
             <ul>
                 <li><strong>Station_ID</strong> - Station identifier (TUS or CT)</li>
-                <li><strong>PCode</strong> - Data Number </li>
+                <li><strong>PCode</strong> - Position code</li>
                 <li><strong>Date_Time</strong> - Date and time</li>
                 <li><strong>Result</strong> - Result values</li>
             </ul>
         </div>
         
-        <form action="/analyze" method="post" enctype="multipart/form-data" id="uploadForm">
+        <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm">
             <div class="upload-area" onclick="document.getElementById('fileInput').click()">
                 <div class="upload-icon">📁</div>
                 <p>Click to select Excel file</p>
